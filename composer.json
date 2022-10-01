@@ -1,8 +1,10 @@
 {
-    "name": "baseet/ubl-invoice",
+    "name": "baseet/zatca-xml",
     "description": "A modern object-oriented PHP library to create valid UBL files",
     "keywords": [
-        "ubl",
+        "zatca",
+        "zatca-xml",
+        "baseetApp",
         "invoice",
         "ublinvoice",
         "ubl invoice",
