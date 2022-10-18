@@ -10,11 +10,14 @@ use InvalidArgumentException;
 
 class Invoice implements XmlSerializable
 {
+    private $UBLExtensions;
+    private $profileID = 'reporting:1.0';
     private $UBLVersionID = '2.1';
-    private $customizationID = '1.0';
+    private $UUID;
     private $id;
     private $copyIndicator;
     private $issueDate;
+    private $issueTime;
     private $invoiceTypeCode = InvoiceTypeCode::INVOICE;
     private $note;
     private $taxPointDate;
@@ -29,13 +32,16 @@ class Invoice implements XmlSerializable
     private $invoiceLines;
     private $allowanceCharges;
     private $additionalDocumentReference;
-    private $documentCurrencyCode = 'EUR';
+    private $documentCurrencyCode = 'SAR';
+    private $taxCurrencyCode = 'SAR';
     private $buyerReference;
     private $accountingCostCode;
     private $invoicePeriod;
     private $delivery;
     private $orderReference;
     private $contractDocumentReference;
+    private $signature;
+
 
     /**
      * @return string
@@ -53,6 +59,25 @@ class Invoice implements XmlSerializable
     public function setUBLVersionID(?string $UBLVersionID): Invoice
     {
         $this->UBLVersionID = $UBLVersionID;
+        return $this;
+    }
+
+    /**
+     * @return string
+     */
+    public function getUBLExtensions()
+    {
+        return $this->UBLExtensions;
+    }
+
+
+    /**
+     * @param UBLExtensions $UBLExtensions
+     * @return Invoice
+     */
+    public function setUBLExtensions(UBLExtensions $UBLExtensions): Invoice
+    {
+        $this->UBLExtensions = $UBLExtensions;
         return $this;
     }
 
@@ -75,12 +100,12 @@ class Invoice implements XmlSerializable
     }
 
     /**
-     * @param mixed $customizationID
+     * @param mixed $UUID
      * @return Invoice
      */
-    public function setCustomizationID(?string $id): Invoice
+    public function setUUID(?string $UUID): Invoice
     {
-        $this->customizationID = $id;
+        $this->UUID = $UUID;
         return $this;
     }
 
@@ -123,6 +148,24 @@ class Invoice implements XmlSerializable
     /**
      * @return DateTime
      */
+    public function getIssueTime(): ?DateTime
+    {
+        return $this->issueTime;
+    }
+
+    /**
+     * @param DateTime $issueDate
+     * @return Invoice
+     */
+    public function setIssueTime(DateTime $issueTime): Invoice
+    {
+        $this->issueTime = $issueTime;
+        return $this;
+    }
+
+    /**
+     * @return DateTime
+     */
     public function getDueDate(): ?DateTime
     {
         return $this->dueDate;
@@ -139,12 +182,32 @@ class Invoice implements XmlSerializable
     }
 
     /**
+     * @param Signature
+     * @return Invoice
+     */
+    public function Signature(Signature $signature): Invoice
+    {
+        $this->signature = $signature;
+        return $this;
+    }
+
+    /**
      * @param mixed $currencyCode
      * @return Invoice
      */
-    public function setDocumentCurrencyCode(string $currencyCode = 'EUR'): Invoice
+    public function setDocumentCurrencyCode(string $currencyCode = 'SAR'): Invoice
     {
         $this->documentCurrencyCode = $currencyCode;
+        return $this;
+    }
+
+    /**
+     * @param mixed $currencyCode
+     * @return Invoice
+     */
+    public function setTaxCurrencyCode(string $currencyCode = 'SAR'): Invoice
+    {
+        $this->taxCurrencyCode = $currencyCode;
         return $this;
     }
 
@@ -393,7 +456,7 @@ class Invoice implements XmlSerializable
         return $this;
     }
 
-      /**
+    /**
      * @return string buyerReference
      */
     public function getBuyerReference(): ?string
@@ -503,8 +566,13 @@ class Invoice implements XmlSerializable
             throw new InvalidArgumentException('Missing invoice id');
         }
 
+
         if (!$this->issueDate instanceof DateTime) {
             throw new InvalidArgumentException('Invalid invoice issueDate');
+        }
+
+        if (!$this->issueTime instanceof DateTime) {
+            throw new InvalidArgumentException('Invalid invoice issueTime');
         }
 
         if ($this->invoiceTypeCode === null) {
@@ -537,10 +605,18 @@ class Invoice implements XmlSerializable
     {
         $this->validate();
 
+        if ($this->UBLExtensions !== null) {
+            $writer->write([
+                Schema::EXT . 'UBLExtensions' => $this->UBLExtensions
+            ]);
+        }
+
+
         $writer->write([
             Schema::CBC . 'UBLVersionID' => $this->UBLVersionID,
-            Schema::CBC . 'CustomizationID' => $this->customizationID,
-            Schema::CBC . 'ID' => $this->id
+            Schema::CBC . 'ProfileID' => $this->profileID,
+            Schema::CBC . 'ID' => $this->id,
+            Schema::CBC . 'UUID' => $this->UUID
         ]);
 
         if ($this->copyIndicator !== null) {
@@ -553,6 +629,10 @@ class Invoice implements XmlSerializable
             Schema::CBC . 'IssueDate' => $this->issueDate->format('Y-m-d'),
         ]);
 
+        $writer->write([
+            Schema::CBC . 'IssueTime' => $this->issueTime->format('H:i:s'),
+        ]);
+
         if ($this->dueDate !== null) {
             $writer->write([
                 Schema::CBC . 'DueDate' => $this->dueDate->format('Y-m-d')
@@ -561,7 +641,19 @@ class Invoice implements XmlSerializable
 
         if ($this->invoiceTypeCode !== null) {
             $writer->write([
-                Schema::CBC . 'InvoiceTypeCode' => $this->invoiceTypeCode
+                [
+                    "name" => Schema::CBC . 'InvoiceTypeCode',
+                    "value" => $this->invoiceTypeCode,
+                    "attributes" => [
+                        "name" => "0100000"
+                    ]
+                ],
+            ]);
+        }
+
+        if ($this->signature !== null) {
+            $writer->write([
+                Schema::CAC . "Signature" => $this->signature
             ]);
         }
 
@@ -579,6 +671,7 @@ class Invoice implements XmlSerializable
 
         $writer->write([
             Schema::CBC . 'DocumentCurrencyCode' => $this->documentCurrencyCode,
+            Schema::CBC . 'TaxCurrencyCode' => $this->taxCurrencyCode,
         ]);
 
         if ($this->accountingCostCode !== null) {
